@@ -211,6 +211,38 @@ def stop_following(follow_id):
 
     return redirect(f"/users/{g.user.id}/following")
 
+@app.route('/users/<int:user_id>/likes', methods=["GET"])
+def show_likes(user_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html', user=user, liked_messages=user.likes)
+
+@app.route('/users/add_like/<int:message_id>', methods=['POST'])
+def add_like(message_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    liked_message = Message.query.get_or_404(message_id)
+    if liked_message.user_id == g.user.id:
+        flash("Cannot like your own message.", "danger")
+        return redirect("/")
+    else:
+        user_liked_messages = g.user.likes
+
+        if liked_message in user_liked_messages:
+            g.user.likes = [user_liked_message for user_liked_message in user_liked_messages if user_liked_message != liked_message]
+        else:
+            g.user.likes.append(liked_message)
+
+        db.session.commit()
+
+        return redirect("/")
+
+
 
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
@@ -328,8 +360,7 @@ def homepage():
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
-
-        return render_template('home.html', messages=messages)
+        return render_template('home.html', messages=messages, likes=[like.id for like in g.user.likes], user=g.user)
 
     else:
         return render_template('home-anon.html')
